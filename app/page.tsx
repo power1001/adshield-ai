@@ -112,29 +112,41 @@ export default function HomePage() {
       setScanStep("3. Running AI claim detection & generating compliant rewrites...");
     }, 1200);
 
-    setTimeout(async () => {
-      const res = await runComplianceScan({
-        primaryText,
-        headline,
-        description,
-        callToAction: cta,
-        landingPageUrl,
-        platform,
+    try {
+      const response = await fetch("/api/scan-ad", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          primaryText,
+          headline,
+          description,
+          callToAction: cta,
+          landingPageUrl,
+          platform,
+        }),
       });
-      setScanReport(res);
+
+      const json = await response.json();
+      if (json.success && json.data) {
+        setScanReport(json.data);
+        if (typeof window !== "undefined") {
+          localStorage.setItem("adshield_pending_scan", JSON.stringify({ headline, primaryText, res: json.data }));
+        }
+      } else {
+        alert(json.error || "Failed to scan ad. Please check inputs.");
+      }
+    } catch (err) {
+      console.error("Scan API Error:", err);
+      alert("Unable to reach scan engine. Please check your connection.");
+    } finally {
       setIsScanning(false);
-
-      // Save scan locally for immediate signup linkage
-      if (typeof window !== "undefined") {
-        localStorage.setItem("adshield_pending_scan", JSON.stringify({ headline, primaryText, res }));
-      }
-
-      // Scroll to results smoothly
-      const resultsElem = document.getElementById("scan-results-view");
-      if (resultsElem) {
-        resultsElem.scrollIntoView({ behavior: "smooth" });
-      }
-    }, 1800);
+      setTimeout(() => {
+        const resultsElem = document.getElementById("scan-results-view");
+        if (resultsElem) {
+          resultsElem.scrollIntoView({ behavior: "smooth" });
+        }
+      }, 150);
+    }
   };
 
   const handleLoadPreset = (preset: typeof PRESET_SCENARIOS[0]) => {

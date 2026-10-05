@@ -252,13 +252,24 @@ function DashboardContent() {
     setIsScanning(true);
 
     try {
-      // 1. Run local orchestrator
-      const report = await runComplianceScan({
-        primaryText: newPrimaryText,
-        headline: newHeadline,
-        landingPageUrl: newLandingUrl,
-        platform: newPlatform,
+      // 1. Call server-side crawler and orchestrator
+      const scanRes = await fetch("/api/scan-ad", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          primaryText: newPrimaryText,
+          headline: newHeadline,
+          landingPageUrl: newLandingUrl,
+          platform: newPlatform,
+        }),
       });
+
+      const scanJson = await scanRes.json();
+      if (!scanJson.success || !scanJson.data) {
+        throw new Error(scanJson.error || "Compliance scan failed.");
+      }
+
+      const report = scanJson.data;
 
       // 2. Persist to Supabase Database
       const saveRes = await fetch("/api/user-scans", {
