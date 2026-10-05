@@ -14,35 +14,55 @@ export default function SignUpPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const handleSignUp = (e: React.FormEvent) => {
+  const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError("");
 
-    setTimeout(() => {
-      if (!name.trim()) {
-        setError("Please enter your full name.");
-        setIsLoading(false);
-        return;
-      }
-      if (!email.includes("@")) {
-        setError("Please enter a valid business email address.");
-        setIsLoading(false);
-        return;
-      }
-      if (password.length < 6) {
-        setError("Password must be at least 6 characters.");
+    if (!name.trim()) {
+      setError("Please enter your full name.");
+      setIsLoading(false);
+      return;
+    }
+    if (!email.includes("@")) {
+      setError("Please enter a valid business email address.");
+      setIsLoading(false);
+      return;
+    }
+    if (password.length < 6) {
+      setError("Password must be at least 6 characters.");
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      const { supabase } = await import("@/lib/supabase");
+      const { data, error: authError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            full_name: name,
+            company_name: company || "Independent Marketer",
+          },
+        },
+      });
+
+      if (authError) {
+        // If error returned from supabase
+        setError(authError.message);
         setIsLoading(false);
         return;
       }
 
-      // Store new user session with free credit
+      // Store local session state for instant UI access
       if (typeof window !== "undefined") {
         localStorage.setItem(
           "adshield_user",
           JSON.stringify({
             name,
             email,
+            id: data?.user?.id || "usr_demo",
             company: company || "Independent Marketer",
             plan: "Free Starter",
             scansRemaining: 1,
@@ -52,7 +72,12 @@ export default function SignUpPage() {
       }
 
       router.push("/dashboard");
-    }, 750);
+    } catch (err: any) {
+      console.error(err);
+      setError(err?.message || "Failed to create account. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (

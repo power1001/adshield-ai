@@ -12,32 +12,56 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError("");
 
-    // Simulate login & session storage
-    setTimeout(() => {
-      if (!email.includes("@")) {
-        setError("Please enter a valid business email address.");
+    if (!email.includes("@")) {
+      setError("Please enter a valid business email address.");
+      setIsLoading(false);
+      return;
+    }
+
+    if (password.length < 6) {
+      setError("Password must be at least 6 characters.");
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      const { supabase } = await import("@/lib/supabase");
+      const { data, error: authError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (authError) {
+        setError(authError.message);
         setIsLoading(false);
         return;
       }
 
-      if (password.length < 6) {
-        setError("Password must be at least 6 characters.");
-        setIsLoading(false);
-        return;
-      }
-
-      // Store simulated user session
+      // Store local user session
       if (typeof window !== "undefined") {
-        localStorage.setItem("adshield_user", JSON.stringify({ email, isLoggedIn: true }));
+        localStorage.setItem(
+          "adshield_user",
+          JSON.stringify({
+            email,
+            id: data?.user?.id,
+            name: data?.user?.user_metadata?.full_name || email.split("@")[0],
+            isLoggedIn: true,
+          })
+        );
       }
 
       router.push("/dashboard");
-    }, 700);
+    } catch (err: any) {
+      console.error(err);
+      setError(err?.message || "Failed to sign in. Please verify your credentials.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
