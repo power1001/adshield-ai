@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   ShieldCheck,
@@ -21,6 +21,11 @@ import {
   FileText,
   Activity,
   UserCheck,
+  TrendingDown,
+  HelpCircle,
+  Download,
+  CreditCard,
+  Building,
 } from "lucide-react";
 import { runComplianceScan, ScanReport } from "@/lib/scanner-orchestrator";
 
@@ -75,6 +80,24 @@ export default function HomePage() {
   // UI state
   const [copiedRewrite, setCopiedRewrite] = useState<boolean>(false);
   const [showPricingModal, setShowPricingModal] = useState<boolean>(false);
+  const [selectedTier, setSelectedTier] = useState<"starter" | "pro" | "agency">("pro");
+  const [checkoutLoading, setCheckoutLoading] = useState<boolean>(false);
+
+  // User state
+  const [user, setUser] = useState<{ email?: string; name?: string; isLoggedIn?: boolean } | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem("adshield_user");
+      if (stored) {
+        try {
+          setUser(JSON.parse(stored));
+        } catch (e) {
+          console.error(e);
+        }
+      }
+    }
+  }, []);
 
   // Trigger Scan
   const handleScanAd = async () => {
@@ -100,6 +123,11 @@ export default function HomePage() {
       });
       setScanReport(res);
       setIsScanning(false);
+
+      // Save scan locally for immediate signup linkage
+      if (typeof window !== "undefined") {
+        localStorage.setItem("adshield_pending_scan", JSON.stringify({ headline, primaryText, res }));
+      }
 
       // Scroll to results smoothly
       const resultsElem = document.getElementById("scan-results-view");
@@ -127,6 +155,28 @@ export default function HomePage() {
     setTimeout(() => setCopiedRewrite(false), 2000);
   };
 
+  const handleCheckout = async (tier: "starter" | "pro" | "agency") => {
+    setCheckoutLoading(true);
+    try {
+      const res = await fetch("/api/create-stripe-checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tier }),
+      });
+      const data = await res.json();
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        alert("Failed to create checkout session.");
+      }
+    } catch (e) {
+      console.error(e);
+      alert("Checkout error. Please try again.");
+    } finally {
+      setCheckoutLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#07090e] text-slate-100 flex flex-col font-sans selection:bg-emerald-500 selection:text-black">
       {/* Navigation Bar */}
@@ -145,32 +195,47 @@ export default function HomePage() {
 
           <div className="hidden md:flex items-center gap-6 text-xs font-semibold text-zinc-400">
             <a href="#free-checker" className="hover:text-white transition-colors">
-              Free Ad Checker
+              Free Ad Scanner
+            </a>
+            <a href="#roi-comparison" className="hover:text-white transition-colors">
+              Why AdShield
             </a>
             <a href="#how-it-works" className="hover:text-white transition-colors">
-              How It Works
+              Technology
             </a>
             <a href="#pricing" className="hover:text-white transition-colors">
               Pricing Plans
             </a>
-            <Link href="/dashboard" className="text-emerald-400 hover:text-emerald-300 font-bold">
-              User Dashboard
-            </Link>
+            <a href="#faq" className="hover:text-white transition-colors">
+              FAQ
+            </a>
           </div>
 
           <div className="flex items-center gap-3">
-            <Link
-              href="/login"
-              className="text-xs px-3.5 py-1.5 rounded-lg border border-white/10 hover:border-zinc-700 text-zinc-300 hover:text-white font-medium transition-all"
-            >
-              Sign In
-            </Link>
-            <Link
-              href="/signup"
-              className="text-xs px-3.5 py-1.5 rounded-lg bg-emerald-400 hover:bg-emerald-300 text-black font-extrabold shadow-[0_0_15px_rgba(16,185,129,0.25)] transition-all"
-            >
-              Get Started
-            </Link>
+            {user?.isLoggedIn ? (
+              <Link
+                href="/dashboard"
+                className="text-xs px-3.5 py-1.5 rounded-lg bg-emerald-400 hover:bg-emerald-300 text-black font-extrabold flex items-center gap-1.5 shadow-[0_0_15px_rgba(16,185,129,0.25)] transition-all"
+              >
+                <span>Dashboard</span>
+                <ChevronRight className="w-3.5 h-3.5" />
+              </Link>
+            ) : (
+              <>
+                <Link
+                  href="/login"
+                  className="text-xs px-3.5 py-1.5 rounded-lg border border-white/10 hover:border-zinc-700 text-zinc-300 hover:text-white font-medium transition-all"
+                >
+                  Sign In
+                </Link>
+                <Link
+                  href="/signup"
+                  className="text-xs px-3.5 py-1.5 rounded-lg bg-emerald-400 hover:bg-emerald-300 text-black font-extrabold shadow-[0_0_15px_rgba(16,185,129,0.25)] transition-all"
+                >
+                  Get Started Free
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </nav>
@@ -180,20 +245,21 @@ export default function HomePage() {
         {/* Compliance Badge */}
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-400/10 border border-emerald-400/20 text-emerald-400 text-xs font-semibold mb-6">
           <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-          Pre-Flight Ad Compliance & Destination Auditor
+          Pre-Flight Ad Compliance & Account Ban Protection
         </div>
 
         {/* Headline */}
         <h1 className="text-3xl md:text-5xl lg:text-6xl font-black text-white tracking-tight leading-[1.1] max-w-3xl mx-auto">
           Check Your Ad Before <br />
           <span className="bg-gradient-to-r from-emerald-400 via-teal-300 to-cyan-400 bg-clip-text text-transparent">
-            You Hit Publish
+            You Spend A Single Dollar
           </span>
         </h1>
 
         {/* Subtitle strictly following non-guarantee compliant marketing guideline */}
         <p className="mt-4 text-sm md:text-base text-zinc-400 max-w-2xl mx-auto leading-relaxed">
-          Reduce the risk of ad disapprovals and account penalties with AI-powered compliance checks for Meta & Google Ads.
+          Audit headlines, body copy, and destination landing pages against 100+ Meta & Google advertising policies.
+          Get instant risk scores and high-converting safe rewrites.
         </p>
 
         {/* Interactive Free Ad Scanner Container */}
@@ -222,122 +288,122 @@ export default function HomePage() {
             </div>
           </div>
 
+          {/* Target Ad Platform */}
+          <div className="mb-6">
+            <label className="text-xs font-semibold text-zinc-300 block mb-2">
+              1. Select Platform Advertising Rules
+            </label>
+            <div className="grid grid-cols-3 gap-3 bg-zinc-900/80 p-1.5 rounded-2xl border border-white/5">
+              {(["meta", "google", "tiktok"] as const).map((plat) => (
+                <button
+                  key={plat}
+                  type="button"
+                  onClick={() => setPlatform(plat)}
+                  className={`py-2 px-3 rounded-xl text-xs font-bold capitalize transition-all ${
+                    platform === plat
+                      ? "bg-emerald-400 text-black shadow-[0_0_15px_rgba(16,185,129,0.3)]"
+                      : "text-zinc-400 hover:text-white"
+                  }`}
+                >
+                  {plat === "meta" ? "Meta (FB & IG)" : plat === "google" ? "Google Ads" : "TikTok Ads"}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Inputs Section */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Input 1: Ad Copy */}
-            <div className="flex flex-col gap-3">
+            {/* Left: Ad Creative Inputs */}
+            <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <label className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
-                  <FileText className="w-3.5 h-3.5 text-emerald-400" /> 1. Ad Copy
-                </label>
-                <div className="flex items-center gap-1 bg-zinc-900 p-0.5 rounded-lg border border-white/5 text-[11px]">
-                  {(["meta", "google", "tiktok"] as const).map((plat) => (
-                    <button
-                      key={plat}
-                      onClick={() => setPlatform(plat)}
-                      className={`px-2 py-0.5 rounded font-bold capitalize transition-all ${
-                        platform === plat ? "bg-emerald-400 text-black" : "text-zinc-400 hover:text-white"
-                      }`}
-                    >
-                      {plat === "meta" ? "Facebook" : plat === "google" ? "Google" : "TikTok"}
-                    </button>
-                  ))}
-                </div>
+                <label className="text-xs font-semibold text-zinc-300">2. Ad Creative Copy</label>
+                <span className="text-[11px] text-zinc-500">Evaluates personal attributes & claims</span>
               </div>
 
-              {/* Primary Text */}
               <div>
-                <span className="text-[11px] text-zinc-400 block mb-1">Primary Text (Body Copy)</span>
-                <textarea
-                  value={primaryText}
-                  onChange={(e) => setPrimaryText(e.target.value)}
-                  rows={4}
-                  placeholder="Paste your ad body copy here..."
-                  className="w-full bg-zinc-900/80 border border-zinc-800 rounded-xl p-3 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400 leading-relaxed font-sans"
-                />
-              </div>
-
-              {/* Headline */}
-              <div>
-                <span className="text-[11px] text-zinc-400 block mb-1">Ad Headline</span>
                 <input
                   type="text"
+                  placeholder="Headline (e.g., Doctor's Miracle Loophole Melts Belly Fat)"
                   value={headline}
                   onChange={(e) => setHeadline(e.target.value)}
-                  placeholder="Enter your ad headline..."
-                  className="w-full bg-zinc-900/80 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-emerald-400"
+                  className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-emerald-400 transition-colors"
                 />
               </div>
 
-              {/* Description & CTA */}
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <span className="text-[11px] text-zinc-400 block mb-1">Description (Optional)</span>
-                  <input
-                    type="text"
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    placeholder="Short description..."
-                    className="w-full bg-zinc-900/80 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-emerald-400"
-                  />
-                </div>
-                <div>
-                  <span className="text-[11px] text-zinc-400 block mb-1">Call To Action (CTA)</span>
-                  <select
-                    value={cta}
-                    onChange={(e) => setCta(e.target.value)}
-                    className="w-full bg-zinc-900/80 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-400 cursor-pointer"
-                  >
-                    <option value="Learn More">Learn More</option>
-                    <option value="Order Now">Order Now</option>
-                    <option value="Get Started">Get Started</option>
-                    <option value="Sign Up">Sign Up</option>
-                    <option value="Shop Now">Shop Now</option>
-                  </select>
-                </div>
+              <div>
+                <textarea
+                  rows={4}
+                  placeholder="Primary Text / Ad Body Copy (e.g., Tired of being overweight? Lose 20 pounds in 10 days guaranteed...)"
+                  value={primaryText}
+                  onChange={(e) => setPrimaryText(e.target.value)}
+                  className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-3.5 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-emerald-400 transition-colors leading-relaxed font-sans"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <input
+                  type="text"
+                  placeholder="Description (Optional)"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-emerald-400"
+                />
+                <input
+                  type="text"
+                  placeholder="CTA (e.g., Order Now)"
+                  value={cta}
+                  onChange={(e) => setCta(e.target.value)}
+                  className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-emerald-400"
+                />
               </div>
             </div>
 
-            {/* Input 2: Landing Page URL */}
-            <div className="flex flex-col gap-3">
-              <label className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
-                <Globe className="w-3.5 h-3.5 text-cyan-400" /> 2. Destination Landing Page URL
-              </label>
-
+            {/* Right: Landing Page URL */}
+            <div className="space-y-4 flex flex-col justify-between">
               <div>
-                <span className="text-[11px] text-zinc-400 block mb-1">
-                  Destination URL (Crawls SSL, disclosures, and redirect issues)
-                </span>
-                <input
-                  type="url"
-                  value={landingPageUrl}
-                  onChange={(e) => setLandingPageUrl(e.target.value)}
-                  placeholder="https://example.com/landing-page"
-                  className="w-full bg-zinc-900/80 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-emerald-400"
-                />
-              </div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-xs font-semibold text-zinc-300">
+                    3. Destination Landing Page URL
+                  </label>
+                  <span className="text-[11px] text-zinc-500">Live SSL & Disclosures Audit</span>
+                </div>
 
-              {/* Real Crawler Explanation Card */}
-              <div className="p-3.5 rounded-xl bg-zinc-900/40 border border-white/5 text-xs text-zinc-400 flex flex-col gap-2 mt-auto">
-                <p className="font-semibold text-zinc-300 flex items-center gap-1.5">
-                  <Activity className="w-3.5 h-3.5 text-emerald-400" /> Google & Meta Destination Requirements:
-                </p>
-                <p className="text-[11px] leading-relaxed">
-                  Our crawler automatically tests: HTTP Status, HTTPS SSL, Privacy Policy & Terms of Service links,
-                  aggressive countdown popups, and ad-to-page mismatch.
-                </p>
-                <div className="flex items-center gap-3 text-[10px] text-zinc-500 font-mono">
-                  <span>✓ 200 OK</span>
-                  <span>✓ SSL Safe</span>
-                  <span>✓ Privacy Check</span>
-                  <span>✓ Cloak Detection</span>
+                <div className="relative">
+                  <input
+                    type="url"
+                    placeholder="https://example.com/landing-page"
+                    value={landingPageUrl}
+                    onChange={(e) => setLandingPageUrl(e.target.value)}
+                    className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3.5 py-2.5 pl-9 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-emerald-400 transition-colors font-mono"
+                  />
+                  <Globe className="w-4 h-4 text-zinc-500 absolute left-3 top-3 pointer-events-none" />
+                </div>
+
+                <div className="mt-4 p-4 rounded-2xl bg-zinc-900/50 border border-white/5 space-y-2 text-xs text-zinc-400">
+                  <div className="font-semibold text-zinc-300 text-[11px] uppercase tracking-wider mb-1">
+                    What Our Crawler Verifies:
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Check className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>HTTP 200 OK & Valid SSL / HTTPS Status</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Check className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Mandatory Privacy Policy & Terms Footer Links</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Check className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>No Suspicious Cloaking or Redirect Loops</span>
+                  </div>
                 </div>
               </div>
 
-              {/* Action Button */}
+              {/* Submit Button */}
               <button
+                type="button"
                 onClick={handleScanAd}
                 disabled={isScanning}
-                className="w-full py-3.5 rounded-xl bg-gradient-to-r from-emerald-400 to-emerald-500 hover:from-emerald-300 hover:to-emerald-400 text-black font-extrabold text-sm flex items-center justify-center gap-2 shadow-[0_0_25px_rgba(16,185,129,0.3)] transition-all hover:scale-[1.01] mt-auto"
+                className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-emerald-400 via-teal-300 to-emerald-500 hover:from-emerald-300 hover:to-emerald-400 text-black font-extrabold text-sm flex items-center justify-center gap-2 shadow-[0_0_30px_rgba(16,185,129,0.35)] transition-all hover:scale-[1.01] active:scale-[0.99] disabled:opacity-60"
               >
                 {isScanning ? (
                   <>
@@ -347,7 +413,7 @@ export default function HomePage() {
                 ) : (
                   <>
                     <Zap className="w-4 h-4 fill-black text-black" />
-                    <span>SCAN MY AD — FREE</span>
+                    <span>SCAN MY AD — FREE INSTANT AUDIT</span>
                   </>
                 )}
               </button>
@@ -356,94 +422,114 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* SCAN RESULTS SECTION (Dynamically Loaded or Previewed) */}
+      {/* SCAN RESULTS PRESENTATION SECTION */}
       {scanReport && (
         <section id="scan-results-view" className="py-12 px-6 max-w-5xl mx-auto w-full">
-          <div className="p-6 md:p-8 rounded-3xl bg-[#0c101c] border border-white/10 shadow-2xl flex flex-col gap-8">
-            {/* Header: Score & Risk Badge */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/5 pb-6">
-              <div>
-                <span className="text-xs uppercase font-extrabold tracking-wider text-zinc-400 block mb-1">
-                  AdShield Pre-Flight Audit Result
+          <div className="p-6 md:p-8 rounded-3xl bg-[#0c101c] border border-white/10 shadow-2xl space-y-8 relative overflow-hidden">
+            {/* Top Score Banner */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 border-b border-white/5 pb-8">
+              <div className="space-y-1">
+                <span className="text-xs uppercase font-extrabold tracking-wider text-emerald-400">
+                  Pre-Flight Compliance Audit Result
                 </span>
-                <h2 className="text-2xl md:text-3xl font-black text-white flex items-center gap-3">
-                  <span>Compliance Score:</span>
-                  <span className="text-emerald-400 font-mono">{scanReport.complianceScore} / 100</span>
-                </h2>
-                <p className="text-xs text-zinc-400 mt-1 max-w-xl">{scanReport.summaryText}</p>
+                <h2 className="text-2xl font-black text-white">Overall Compliance Health</h2>
+                <p className="text-xs text-zinc-400 max-w-lg leading-relaxed">
+                  {scanReport.summaryText}
+                </p>
               </div>
 
-              <div className="sm:text-right">
-                <span className={`inline-block px-3 py-1.5 rounded-xl border text-xs font-black ${scanReport.riskBadgeColor}`}>
+              <div className="flex items-center gap-4 bg-zinc-900/80 p-4 rounded-2xl border border-white/5">
+                <div className="text-right">
+                  <div className="text-4xl font-black font-mono text-white">
+                    {scanReport.complianceScore}
+                    <span className="text-zinc-500 text-base font-normal"> / 100</span>
+                  </div>
+                  <div className="text-[11px] text-zinc-400 font-medium">Compliance Index</div>
+                </div>
+                <div className={`px-3 py-1.5 rounded-xl border text-xs font-bold ${scanReport.riskBadgeColor}`}>
                   {scanReport.riskLevel}
-                </span>
-                <p className="text-[11px] text-zinc-500 mt-1">Platform: {scanReport.platform.toUpperCase()} ADS</p>
+                </div>
               </div>
             </div>
 
-            {/* 6-Factor Status Matrix Table */}
+            {/* 6-Factor Status Matrix */}
             <div>
-              <h3 className="text-xs uppercase font-bold text-zinc-400 tracking-wider mb-3">
-                Compliance Status Matrix (6 Technical Layers)
+              <h3 className="text-xs uppercase font-extrabold text-zinc-400 tracking-wider mb-4">
+                6-Factor Pre-Flight Status Matrix
               </h3>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2.5">
-                {[
-                  { name: "Ad Copy", status: scanReport.matrix.adCopy },
-                  { name: "Landing Page", status: scanReport.matrix.landingPage },
-                  { name: "Claims", status: scanReport.matrix.claims },
-                  { name: "Destination", status: scanReport.matrix.destination },
-                  { name: "Transparency", status: scanReport.matrix.transparency },
-                  { name: "Policy Signals", status: scanReport.matrix.policySignals },
-                ].map((item, idx) => (
-                  <div key={idx} className="p-3 rounded-xl bg-zinc-900/60 border border-white/5 flex flex-col gap-1">
-                    <span className="text-[11px] text-zinc-400">{item.name}</span>
-                    <span className="text-xs font-bold text-white font-mono">{item.status}</span>
-                  </div>
-                ))}
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                <div className="p-3.5 rounded-2xl bg-zinc-900/60 border border-white/5 text-center">
+                  <span className="text-[10px] text-zinc-400 uppercase font-semibold block mb-1">
+                    Ad Copy
+                  </span>
+                  <span className="font-bold text-xs">{scanReport.matrix.adCopy}</span>
+                </div>
+                <div className="p-3.5 rounded-2xl bg-zinc-900/60 border border-white/5 text-center">
+                  <span className="text-[10px] text-zinc-400 uppercase font-semibold block mb-1">
+                    Landing Page
+                  </span>
+                  <span className="font-bold text-xs">{scanReport.matrix.landingPage}</span>
+                </div>
+                <div className="p-3.5 rounded-2xl bg-zinc-900/60 border border-white/5 text-center">
+                  <span className="text-[10px] text-zinc-400 uppercase font-semibold block mb-1">
+                    Claims / Promises
+                  </span>
+                  <span className="font-bold text-xs">{scanReport.matrix.claims}</span>
+                </div>
+                <div className="p-3.5 rounded-2xl bg-zinc-900/60 border border-white/5 text-center">
+                  <span className="text-[10px] text-zinc-400 uppercase font-semibold block mb-1">
+                    Destination SSL
+                  </span>
+                  <span className="font-bold text-xs">{scanReport.matrix.destination}</span>
+                </div>
+                <div className="p-3.5 rounded-2xl bg-zinc-900/60 border border-white/5 text-center">
+                  <span className="text-[10px] text-zinc-400 uppercase font-semibold block mb-1">
+                    Transparency
+                  </span>
+                  <span className="font-bold text-xs">{scanReport.matrix.transparency}</span>
+                </div>
+                <div className="p-3.5 rounded-2xl bg-zinc-900/60 border border-white/5 text-center">
+                  <span className="text-[10px] text-zinc-400 uppercase font-semibold block mb-1">
+                    Policy Signals
+                  </span>
+                  <span className="font-bold text-xs">{scanReport.matrix.policySignals}</span>
+                </div>
               </div>
             </div>
 
             {/* Top Issues Detected */}
             {scanReport.topIssues.length > 0 && (
-              <div>
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-xs uppercase font-bold text-zinc-400 tracking-wider flex items-center gap-1.5">
-                    <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xs uppercase font-extrabold text-red-400 tracking-wider flex items-center gap-1.5">
+                    <AlertTriangle className="w-3.5 h-3.5 text-red-400" />
                     Top Issues Detected ({scanReport.totalIssuesCount})
                   </h3>
-                  <span className="text-[10px] text-zinc-500">Free audit reveals top 3 triggers</span>
+                  <span className="text-[11px] text-zinc-500">Showing top triggers</span>
                 </div>
 
-                <div className="space-y-3">
+                <div className="space-y-2">
                   {scanReport.topIssues.map((issue, idx) => (
                     <div
                       key={idx}
-                      className="p-4 rounded-xl bg-zinc-900/80 border border-white/5 flex flex-col gap-1.5 text-xs"
+                      className="p-3.5 rounded-xl bg-red-500/10 border border-red-500/20 text-xs flex flex-col gap-1"
                     >
                       <div className="flex items-center justify-between">
-                        <span
-                          className={`text-[10px] font-black uppercase px-2 py-0.5 rounded border ${
-                            issue.severity === "HIGH RISK"
-                              ? "bg-red-500/10 text-red-400 border-red-500/30"
-                              : "bg-amber-500/10 text-amber-400 border-amber-500/30"
-                          }`}
-                        >
+                        <span className="font-bold text-red-400">"{issue.quote}"</span>
+                        <span className="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-red-500/20 text-red-300">
                           {issue.severity}
                         </span>
-                        <span className="text-[10px] text-zinc-500 font-mono">{issue.policyRef}</span>
                       </div>
-                      <p className="font-semibold text-white">
-                        Triggered on: <span className="text-emerald-300">"{issue.quote}"</span>
-                      </p>
-                      <p className="text-zinc-400 text-[11px] leading-relaxed">{issue.potentialIssue}</p>
+                      <p className="text-zinc-300">{issue.potentialIssue}</p>
+                      <p className="text-[10px] text-zinc-500">Standard: {issue.policyRef}</p>
                     </div>
                   ))}
                 </div>
               </div>
             )}
 
-            {/* High-Value AI Recommended Rewrite (Solution) */}
-            <div className="p-6 rounded-2xl bg-gradient-to-b from-emerald-500/10 to-transparent border border-emerald-500/30 flex flex-col gap-4">
+            {/* AI Safe-Mode Rewrite */}
+            <div className="p-5 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 space-y-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Sparkles className="w-4 h-4 text-emerald-400" />
@@ -497,7 +583,7 @@ export default function HomePage() {
 
             {/* Locked Sections / Teaser for Free to Paid Funnel */}
             <div className="relative p-6 rounded-2xl bg-zinc-900/60 border border-white/10 overflow-hidden">
-              <div className="absolute inset-0 bg-black/70 backdrop-blur-md z-10 flex flex-col items-center justify-center p-6 text-center">
+              <div className="absolute inset-0 bg-black/75 backdrop-blur-md z-10 flex flex-col items-center justify-center p-6 text-center">
                 <div className="w-12 h-12 rounded-2xl bg-emerald-400/10 border border-emerald-400/30 flex items-center justify-center text-emerald-400 mb-3 shadow-[0_0_20px_rgba(16,185,129,0.3)]">
                   <Lock className="w-6 h-6" />
                 </div>
@@ -506,12 +592,20 @@ export default function HomePage() {
                   Includes full destination technical crawl, 5 additional AI copy variations, platform-by-platform rules,
                   and official compliance PDF certificate.
                 </p>
-                <button
-                  onClick={() => setShowPricingModal(true)}
-                  className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-400 to-emerald-500 hover:from-emerald-300 hover:to-emerald-400 text-black font-extrabold text-xs shadow-[0_0_20px_rgba(16,185,129,0.3)] transition-all hover:scale-105"
-                >
-                  Upgrade to Pro ($49/mo) — 100 Scans Included
-                </button>
+                <div className="flex flex-wrap items-center justify-center gap-3">
+                  <button
+                    onClick={() => setShowPricingModal(true)}
+                    className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-400 to-emerald-500 hover:from-emerald-300 hover:to-emerald-400 text-black font-extrabold text-xs shadow-[0_0_20px_rgba(16,185,129,0.3)] transition-all hover:scale-105"
+                  >
+                    Upgrade to Pro ($49/mo) — 100 Scans Included
+                  </button>
+                  <Link
+                    href="/signup"
+                    className="px-4 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white font-bold text-xs border border-white/10"
+                  >
+                    Save This Scan To Free Account
+                  </Link>
+                </div>
               </div>
 
               {/* Blurred Dummy Content in Background */}
@@ -526,49 +620,83 @@ export default function HomePage() {
         </section>
       )}
 
-      {/* Architecture / How It Works */}
-      <section id="how-it-works" className="py-16 px-6 max-w-5xl mx-auto w-full border-t border-white/5">
+      {/* ROI & TRUE COST COMPARISON SECTION */}
+      <section id="roi-comparison" className="py-16 px-6 max-w-5xl mx-auto w-full border-t border-white/5">
         <div className="text-center mb-12">
-          <span className="text-xs uppercase font-extrabold text-emerald-400 tracking-wider">
-            Hybrid Scanning Technology
+          <span className="text-xs uppercase font-extrabold text-red-400 tracking-wider">
+            The Reality of Media Buying in 2026
           </span>
           <h2 className="text-2xl md:text-4xl font-extrabold text-white mt-2">
-            Not Just A Generic ChatGPT Prompt
+            The True Cost Of A Banned Ad Account
           </h2>
           <p className="text-xs md:text-sm text-zinc-400 mt-2 max-w-xl mx-auto">
-            AdShield combines 3 distinct analytical layers to evaluate both ad creatives and destination experiences.
+            Meta & Google deploy aggressive automated bots that ban accounts with zero human warning.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="p-6 rounded-2xl bg-[#0c101c] border border-white/5 flex flex-col gap-3">
-            <div className="w-10 h-10 rounded-xl bg-cyan-400/10 text-cyan-400 flex items-center justify-center font-bold">
-              1
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Without AdShield */}
+          <div className="p-6 md:p-8 rounded-3xl bg-red-950/20 border border-red-500/20 flex flex-col justify-between">
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <span className="text-xs font-bold text-red-400 uppercase tracking-wider">Without AdShield</span>
+                <TrendingDown className="w-5 h-5 text-red-400" />
+              </div>
+              <h3 className="text-xl font-black text-white">The Ban Spiral ($3,500+ Loss)</h3>
+              <ul className="mt-4 space-y-3 text-xs text-zinc-300">
+                <li className="flex items-start gap-2">
+                  <span className="text-red-400 font-bold">✕</span>
+                  <span><strong>Ad Disapproved:</strong> Campaign stopped mid-scale during peak weekend revenue.</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-red-400 font-bold">✕</span>
+                  <span><strong>Account Quality Drops:</strong> CPMs spike by 40-70% due to negative ad account trust score.</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-red-400 font-bold">✕</span>
+                  <span><strong>Agency Client Lost:</strong> Unhappy client fires agency due to broken delivery and lost budget.</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-red-400 font-bold">✕</span>
+                  <span><strong>Appeals Take 3–7 Days:</strong> Often rejected by offshore automated support loops.</span>
+                </li>
+              </ul>
             </div>
-            <h3 className="font-bold text-white text-base">Layer 1 — Technical Crawler</h3>
-            <p className="text-xs text-zinc-400 leading-relaxed">
-              Crawls destination URLs for HTTP 200 OK, HTTPS SSL, Privacy Policy links, cloaking redirects, and thin content.
-            </p>
+            <div className="mt-6 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-center text-xs font-bold text-red-300">
+              Average Loss Per Disapproval: $1,200 – $5,000+
+            </div>
           </div>
 
-          <div className="p-6 rounded-2xl bg-[#0c101c] border border-white/5 flex flex-col gap-3">
-            <div className="w-10 h-10 rounded-xl bg-emerald-400/10 text-emerald-400 flex items-center justify-center font-bold">
-              2
+          {/* With AdShield AI */}
+          <div className="p-6 md:p-8 rounded-3xl bg-emerald-950/20 border border-emerald-500/30 flex flex-col justify-between shadow-[0_0_30px_rgba(16,185,129,0.1)]">
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider">With AdShield AI</span>
+                <ShieldCheck className="w-5 h-5 text-emerald-400" />
+              </div>
+              <h3 className="text-xl font-black text-white">Pre-Flight Peace Of Mind ($19/mo)</h3>
+              <ul className="mt-4 space-y-3 text-xs text-zinc-300">
+                <li className="flex items-start gap-2">
+                  <Check className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                  <span><strong>Instant 3-Layer Scan:</strong> Catch trigger words, fake urgency, and personal attributes in 2 seconds.</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                  <span><strong>AI Safe Rewrites:</strong> Keep your high-converting hook while eliminating toxic phrases.</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                  <span><strong>Landing Page Audit:</strong> Verify SSL, disclaimers, and privacy policy before submitting to review.</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                  <span><strong>White-Label PDF Certificates:</strong> Deliver certified compliance reports to agency clients.</span>
+                </li>
+              </ul>
             </div>
-            <h3 className="font-bold text-white text-base">Layer 2 — Policy Rule Engine</h3>
-            <p className="text-xs text-zinc-400 leading-relaxed">
-              Evaluates copy against 100+ granular Advertising Standards: Personal Attributes, Miracle Health, and Unrealistic Outcomes.
-            </p>
-          </div>
-
-          <div className="p-6 rounded-2xl bg-[#0c101c] border border-white/5 flex flex-col gap-3">
-            <div className="w-10 h-10 rounded-xl bg-purple-400/10 text-purple-400 flex items-center justify-center font-bold">
-              3
+            <div className="mt-6 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-center text-xs font-bold text-emerald-300">
+              Starts at only $19/mo (Less than 1 disapproved ad)
             </div>
-            <h3 className="font-bold text-white text-base">Layer 3 — AI Safe Rewriter</h3>
-            <p className="text-xs text-zinc-400 leading-relaxed">
-              Generates compliant alternatives that eliminate toxic ban triggers while preserving your conversion hook and marketing intent.
-            </p>
           </div>
         </div>
       </section>
@@ -580,10 +708,10 @@ export default function HomePage() {
             Predictable Credit-Based Plans
           </span>
           <h2 className="text-2xl md:text-4xl font-extrabold text-white mt-2">
-            Protect Your Ad Spend & Accounts
+            Select Your Compliance Protection Plan
           </h2>
           <p className="text-xs md:text-sm text-zinc-400 mt-2">
-            No unexpected billing. Monthly scan credits enforced directly from the backend.
+            No long-term contracts. Cancel or upgrade anytime in 1 click.
           </p>
         </div>
 
@@ -617,21 +745,22 @@ export default function HomePage() {
                 </div>
                 <div className="flex items-center gap-2">
                   <Check className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
-                  <span>Scan History</span>
+                  <span>Scan History in Supabase</span>
                 </div>
               </div>
             </div>
 
-            <Link
-              href="/dashboard"
-              className="mt-8 w-full py-2.5 rounded-xl border border-white/10 hover:border-zinc-600 text-white font-bold text-xs text-center transition-all"
+            <button
+              onClick={() => handleCheckout("starter")}
+              disabled={checkoutLoading}
+              className="mt-8 w-full py-2.5 rounded-xl border border-white/10 hover:border-zinc-500 text-white font-bold text-xs text-center transition-all"
             >
-              Choose Starter
-            </Link>
+              Choose Starter ($19/mo)
+            </button>
           </div>
 
           {/* Plan 2: Pro (Popular) */}
-          <div className="p-6 rounded-3xl bg-[#0e1626] border border-emerald-400/40 flex flex-col justify-between relative shadow-[0_0_30px_rgba(16,185,129,0.15)]">
+          <div className="p-6 rounded-3xl bg-[#0e1626] border-2 border-emerald-400/50 flex flex-col justify-between relative shadow-[0_0_30px_rgba(16,185,129,0.15)]">
             <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-emerald-400 text-black text-[10px] font-black uppercase tracking-wider px-3 py-0.5 rounded-full shadow-sm">
               Most Popular
             </div>
@@ -651,7 +780,7 @@ export default function HomePage() {
                 </div>
                 <div className="flex items-center gap-2">
                   <Check className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
-                  <span>Meta + Google Ads Checker</span>
+                  <span>Meta + Google + TikTok Ads</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Check className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
@@ -663,21 +792,22 @@ export default function HomePage() {
                 </div>
                 <div className="flex items-center gap-2">
                   <Check className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
-                  <span>AI Rewrites & Marketing Intent Preserver</span>
+                  <span>AI Rewrites & Intent Preserver</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Check className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
-                  <span>Downloadable PDF Reports</span>
+                  <span>Print & Download PDF Certificates</span>
                 </div>
               </div>
             </div>
 
-            <Link
-              href="/dashboard"
+            <button
+              onClick={() => handleCheckout("pro")}
+              disabled={checkoutLoading}
               className="mt-8 w-full py-2.5 rounded-xl bg-gradient-to-r from-emerald-400 to-emerald-500 hover:from-emerald-300 hover:to-emerald-400 text-black font-extrabold text-xs text-center transition-all shadow-[0_0_15px_rgba(16,185,129,0.3)]"
             >
               Choose Pro ($49/mo)
-            </Link>
+            </button>
           </div>
 
           {/* Plan 3: Agency */}
@@ -697,11 +827,7 @@ export default function HomePage() {
                 </div>
                 <div className="flex items-center gap-2">
                   <Check className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
-                  <span>Multiple Client Projects & Workspaces</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Check className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
-                  <span>White-Label Client Compliance Reports</span>
+                  <span>White-Label Client PDF Certificates</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Check className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
@@ -709,26 +835,136 @@ export default function HomePage() {
                 </div>
                 <div className="flex items-center gap-2">
                   <Check className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
-                  <span>API Access for Batch Audits</span>
+                  <span>Priority Crawler Speeds</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Check className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
+                  <span>Team Seats (Up to 5 Media Buyers)</span>
                 </div>
               </div>
             </div>
 
-            <Link
-              href="/dashboard"
-              className="mt-8 w-full py-2.5 rounded-xl border border-white/10 hover:border-zinc-600 text-white font-bold text-xs text-center transition-all"
+            <button
+              onClick={() => handleCheckout("agency")}
+              disabled={checkoutLoading}
+              className="mt-8 w-full py-2.5 rounded-xl border border-white/10 hover:border-zinc-500 text-white font-bold text-xs text-center transition-all"
             >
-              Choose Agency
-            </Link>
+              Choose Agency ($99/mo)
+            </button>
           </div>
         </div>
       </section>
+
+      {/* FREQUENTLY ASKED QUESTIONS */}
+      <section id="faq" className="py-16 px-6 max-w-4xl mx-auto w-full border-t border-white/5">
+        <div className="text-center mb-10">
+          <span className="text-xs uppercase font-extrabold text-emerald-400 tracking-wider">FAQ</span>
+          <h2 className="text-2xl md:text-3xl font-extrabold text-white mt-1">Frequently Asked Questions</h2>
+        </div>
+
+        <div className="space-y-4 text-xs">
+          <div className="p-5 rounded-2xl bg-[#0c101c] border border-white/5">
+            <h4 className="font-extrabold text-white text-sm mb-1.5 flex items-center gap-2">
+              <HelpCircle className="w-4 h-4 text-emerald-400" />
+              Does AdShield AI guarantee my ad will never be rejected?
+            </h4>
+            <p className="text-zinc-400 leading-relaxed">
+              No service can guarantee 100% approval because platform algorithms and manual reviewers update their policies frequently.
+              AdShield AI significantly reduces your risk by auditing your copy and landing page against known policy standards (Personal Attributes, Unrealistic Promises, False Urgency, Destination SSL, and Disclosures) before you submit your ad.
+            </p>
+          </div>
+
+          <div className="p-5 rounded-2xl bg-[#0c101c] border border-white/5">
+            <h4 className="font-extrabold text-white text-sm mb-1.5 flex items-center gap-2">
+              <HelpCircle className="w-4 h-4 text-emerald-400" />
+              How do monthly scan credits work?
+            </h4>
+            <p className="text-zinc-400 leading-relaxed">
+              Each time you audit an ad copy or destination page, 1 scan credit is deducted. Starter plans include 25 scans, Pro includes 100 scans, and Agency includes 300 scans every month. You can upgrade anytime if your team scales ad volume.
+            </p>
+          </div>
+
+          <div className="p-5 rounded-2xl bg-[#0c101c] border border-white/5">
+            <h4 className="font-extrabold text-white text-sm mb-1.5 flex items-center gap-2">
+              <HelpCircle className="w-4 h-4 text-emerald-400" />
+              Can I generate client PDF compliance certificates?
+            </h4>
+            <p className="text-zinc-400 leading-relaxed">
+              Yes! Pro and Agency subscribers can export clean, official Pre-Flight Compliance Certificates with unique verification IDs, 6-factor matrix breakdowns, and signed audit stamps to share with clients or compliance teams.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* PRICING CHECKOUT MODAL */}
+      {showPricingModal && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="max-w-xl w-full p-6 md:p-8 rounded-3xl bg-[#0c101c] border border-white/10 relative flex flex-col gap-6">
+            <div className="flex items-center justify-between border-b border-white/5 pb-4">
+              <div>
+                <span className="text-[10px] uppercase font-extrabold tracking-wider text-emerald-400">
+                  Instant Plan Activation
+                </span>
+                <h3 className="text-xl font-black text-white">Unlock Full Compliance Reports</h3>
+              </div>
+              <button
+                onClick={() => setShowPricingModal(false)}
+                className="text-zinc-400 hover:text-white p-1 rounded-lg bg-zinc-900 border border-white/5 text-xs font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              {[
+                { id: "starter", name: "Starter", price: "$19/mo", scans: "25 Scans / month" },
+                { id: "pro", name: "Pro (Recommended)", price: "$49/mo", scans: "100 Scans + PDF Export" },
+                { id: "agency", name: "Agency", price: "$99/mo", scans: "300 Scans + White Label" },
+              ].map((tier) => (
+                <div
+                  key={tier.id}
+                  onClick={() => setSelectedTier(tier.id as any)}
+                  className={`p-4 rounded-2xl border cursor-pointer transition-all flex items-center justify-between ${
+                    selectedTier === tier.id
+                      ? "bg-emerald-500/10 border-emerald-400 text-white"
+                      : "bg-zinc-900/50 border-white/5 text-zinc-400 hover:text-white"
+                  }`}
+                >
+                  <div>
+                    <h5 className="font-extrabold text-sm text-white">{tier.name}</h5>
+                    <p className="text-xs text-zinc-400">{tier.scans}</p>
+                  </div>
+                  <span className="text-base font-black text-emerald-400 font-mono">{tier.price}</span>
+                </div>
+              ))}
+            </div>
+
+            <button
+              onClick={() => handleCheckout(selectedTier)}
+              disabled={checkoutLoading}
+              className="w-full py-3.5 rounded-xl bg-gradient-to-r from-emerald-400 to-emerald-500 hover:from-emerald-300 hover:to-emerald-400 text-black font-extrabold text-sm flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(16,185,129,0.3)]"
+            >
+              {checkoutLoading ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin text-black" />
+                  <span>Processing...</span>
+                </>
+              ) : (
+                <>
+                  <CreditCard className="w-4 h-4 text-black" />
+                  <span>Activate {selectedTier.toUpperCase()} Plan</span>
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Footer */}
       <footer className="border-t border-white/5 py-8 text-center text-xs text-zinc-500">
         <p className="max-w-xl mx-auto leading-relaxed">
           © 2026 AdShield AI Technologies Inc. AdShield provides compliance insights based on publicly available platform
-          advertising standards. Platform policy decisions are solely determined by Meta and Google.
+          advertising standards. Platform policy decisions are solely determined by Meta, Google, and TikTok.
         </p>
       </footer>
     </div>
